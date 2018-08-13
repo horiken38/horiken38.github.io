@@ -7,18 +7,11 @@ $(function() {
   });
 
   let localStream;
-  let existingCall;
-
+  let room;
   peer.on('open', () => {
     $('#my-id').text(peer.id);
+    // Get things started
     step1();
-  });
-
-  // Receiving a call
-  peer.on('call', call => {
-    // Answer the call automatically (instead of prompting user) for demo purposes
-    call.answer(localStream);
-    step3(call);
   });
 
   peer.on('error', err => {
@@ -30,13 +23,18 @@ $(function() {
   $('#make-call').on('submit', e => {
     e.preventDefault();
     // Initiate a call!
-    console.log($('#callto-id').val());
-    const call = peer.call($('#callto-id').val(), localStream);
-    step3(call);
+    const roomName = $('#join-room').val();
+    if (!roomName) {
+      return;
+    }
+    room = peer.joinRoom('mesh_video_' + roomName, {stream: localStream});
+
+    $('#room-id').text(roomName);
+    step3(room);
   });
 
   $('#end-call').on('click', () => {
-    existingCall.close();
+    room.close();
     step2();
   });
 
@@ -78,8 +76,8 @@ $(function() {
 
       selectors.forEach((select, selectorIndex) => {
         if (Array.prototype.slice.call(select.children()).some(n => {
-          return n.value === values[selectorIndex];
-        })) {
+            return n.value === values[selectorIndex];
+          })) {
           select.val(values[selectorIndex]);
         }
       });
@@ -96,13 +94,12 @@ $(function() {
       audio: {deviceId: audioSource ? {exact: audioSource} : undefined},
       video: {deviceId: videoSource ? {exact: videoSource} : undefined},
     };
-
     navigator.mediaDevices.getUserMedia(constraints).then(stream => {
       $('#my-video').get(0).srcObject = stream;
       localStream = stream;
 
-      if (existingCall) {
-        existingCall.replaceStream(stream);
+      if (room) {
+        room.replaceStream(stream);
         return;
       }
 
@@ -114,27 +111,38 @@ $(function() {
   }
 
   function step2() {
+    $('#their-videos').empty();
     $('#step1, #step3').hide();
     $('#step2').show();
-    $('#callto-id').focus();
+    $('#join-room').focus();
   }
 
-  function step3(call) {
-    // Hang up on an existing call if present
-    if (existingCall) {
-      existingCall.close();
-    }
+  function step3(room) {
     // Wait for stream on the call, then set peer video display
-    call.on('stream', stream => {
-      const el = $('#their-video').get(0);
+    room.on('stream', stream => {
+      const peerId = stream.peerId;
+      const id = 'video_' + peerId + '_' + stream.id.replace('{', '').replace('}', '');
+
+      $('#their-videos').append($(
+        '<div class="video_' + peerId +'" id="' + id + '">' +
+          '<label>' + stream.peerId + ':' + stream.id + '</label>' +
+          '<video class="remoteVideos" autoplay playsinline>' +
+        '</div>'));
+      const el = $('#' + id).find('video').get(0);
       el.srcObject = stream;
       el.play();
     });
 
+    room.on('removeStream', function(stream) {
+      const peerId = stream.peerId;
+      $('#video_' + peerId + '_' + stream.id.replace('{', '').replace('}', '')).remove();
+    });
+
     // UI stuff
-    existingCall = call;
-    $('#their-id').text(call.remoteId);
-    call.on('close', step2);
+    room.on('close', step2);
+    room.on('peerLeave', peerId => {
+      $('.video_' + peerId).remove();
+    });
     $('#step1, #step2').hide();
     $('#step3').show();
   }
