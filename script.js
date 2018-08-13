@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 $(function() {
   // Connect to SkyWay, have server assign an ID instead of providing one
-  // Showing off some of the configs available with SkyWay:).
+  // Showing off some of the configs available with SkyWay :).
   const peer = new Peer({
     // Set API key for cloud server (you don't need this if you're running your
     // own.
@@ -21,10 +21,7 @@ $(function() {
     $('#pid').text(id);
   });
   // Await connections from others
-  peer.on('connection', c => {
-    // Show connection when it is completely ready
-    c.on('open', () => connect(c));
-  });
+  peer.on('connection', connect);
   peer.on('error', err => console.log(err));
 
   // Prepare file drop box.
@@ -34,11 +31,9 @@ $(function() {
   box.on('drop', e => {
     e.originalEvent.preventDefault();
     const [file] = e.originalEvent.dataTransfer.files;
-    eachActiveConnection((c, $c) => {
-      if (c.label === 'file') {
-        c.send(file);
-        $c.find('.messages').append('<div><span class="file">You sent a file.</span></div>');
-      }
+    eachActiveRoom((room, $c) => {
+      room.send(file);
+      $c.find('.messages').append('<div><span class="file">You sent a file.</span></div>');
     });
   });
   function doNothing(e) {
@@ -46,40 +41,30 @@ $(function() {
     e.stopPropagation();
   }
 
-  $('#rid').focus();
+  $('#roomName').focus();
 
-  // Connect to a peer
+  // Connect to a room
   $('#connect').on('submit', e => {
     e.preventDefault();
-    const requestedPeer = $('#rid').val();
-    if (!connectedPeers[requestedPeer]) {
+    const roomName = $('#roomName').val();
+    if (!roomName) {
+      return;
+    }
+    if (!connectedPeers[roomName]) {
       // Create 2 connections, one labelled chat and another labelled file.
-      const c = peer.connect(requestedPeer, {
-        label:    'chat',
-        metadata: {message: 'hi i want to chat with you!'},
+      const room = peer.joinRoom('mesh_text_' + roomName);
+      room.on('open', function() {
+        connect(room);
+        connectedPeers[roomName] = room;
       });
-
-      c.on('open', () => {
-        connect(c);
-        connectedPeers[requestedPeer] = 1;
-      });
-
-      c.on('error', err => alert(err));
-
-      const f = peer.connect(requestedPeer, {label: 'file', reliable: true});
-
-      f.on('open', () => {
-        connect(f);
-      });
-
-      f.on('error', err => alert(err));
     }
   });
 
   // Close a connection.
   $('#close').on('click', () => {
-    eachActiveConnection(c => {
-      c.close();
+    eachActiveRoom(function(room, $c) {
+      room.close();
+      $c.remove();
     });
   });
 
@@ -88,12 +73,11 @@ $(function() {
     e.preventDefault();
     // For each active connection, send the message.
     const msg = $('#text').val();
-    eachActiveConnection((c, $c) => {
-      if (c.label === 'chat') {
-        c.send(msg);
-        $c.find('.messages').append('<div><span class="you">You: </span>' + msg
-          + '</div>');
-      }
+
+    eachActiveRoom((room, $c) => {
+      room.send(msg);
+      $c.find('.messages').append('<div><span class="you">You: </span>' + msg
+        + '</div>');
     });
     $('#text').val('');
     $('#text').focus();
@@ -110,91 +94,80 @@ $(function() {
   };
 
   // Handle a connection object.
-  function connect(c) {
+  function connect(room) {
     // Handle a chat connection.
-    if (c.label === 'chat') {
-      const chatbox = $('<div></div>').addClass('connection').addClass('active').attr('id', c.remoteId);
-      const header = $('<h1></h1>').html('Chat with <strong>' + c.remoteId + '</strong>');
-      const messages = $('<div><em>Peer connected.</em></div>').addClass('messages');
-      chatbox.append(header);
-      chatbox.append(messages);
-      // Select connection handler.
-      chatbox.on('click', () => {
-        chatbox.toggleClass('active');
-      });
+    $('#text').focus();
+    const chatbox = $('<div></div>').addClass('connection').addClass('active').attr('id', room.name);
+    const roomName = room.name.replace('sfu_text_', '');
+    const header = $('<h1></h1>').html('Room: <strong>' + roomName + '</strong>');
+    const messages = $('<div><em>Peer connected.</em></div>').addClass('messages');
+    chatbox.append(header);
+    chatbox.append(messages);
+    // Select connection handler.
+    chatbox.on('click', () => {
+      chatbox.toggleClass('active');
+    });
 
-      $('.filler').hide();
-      $('#connections').append(chatbox);
+    $('.filler').hide();
+    $('#connections').append(chatbox);
 
-      c.on('data', data => {
-        messages.append('<div><span class="peer">' + c.remoteId + '</span>: ' + data +
-          '</div>');
-      });
+    room.getLog();
+    room.once('log', logs => {
+      for (let i = 0; i < logs.length; i++) {
+        const log = JSON.parse(logs[i]);
 
-      c.on('close', () => {
-        alert(c.remoteId + ' has left the chat.');
-        chatbox.remove();
-        if ($('.connection').length === 0) {
-          $('.filler').show();
+        switch (log.messageType) {
+          case 'ROOM_DATA':
+            messages.append('<div><span class="peer">' + log.message.src + '</span>: ' + log.message.data + '</div>');
+            break;
+          case 'ROOM_USER_JOIN':
+            if (log.message.src === peer.id) {
+              break;
+            }
+            messages.append('<div><span class="peer">' + log.message.src + '</span>: has joined the room </div>');
+            break;
+          case 'ROOM_USER_LEAVE':
+            if (log.message.src === peer.id) {
+              break;
+            }
+            messages.append('<div><span class="peer">' + log.message.src + '</span>: has left the room </div>');
+            break;
         }
-        delete connectedPeers[c.remoteId];
-      });
-    } else if (c.label === 'file') {
-      c.on('data', function(data) {
-        // If we're getting a file, create a URL for it.
-        let dataBlob;
-        if (data.constructor === ArrayBuffer) {
-          dataBlob = new Blob([new Uint8Array(data)]);
-        } else {
-          dataBlob = data;
-        }
-        const filename = dataBlob.name || 'file';
+      }
+    });
+
+    room.on('data', message => {
+      if (message.data instanceof ArrayBuffer) {
+        const dataView = new Uint8Array(message.data);
+        const dataBlob = new Blob([dataView]);
         const url = URL.createObjectURL(dataBlob);
-        $('#' + c.remoteId).find('.messages').append('<div><span class="file">' +
-          c.remoteId + ' has sent you a <a target="_blank" href="' + url + '" download="' + filename + '">file</a>.</span></div>');
-      });
-    }
-    connectedPeers[c.remoteId] = 1;
+        messages.append('<div><span class="file">' +
+          message.src + ' has sent you a <a target="_blank" href="' + url + '">file</a>.</span></div>');
+      } else {
+        messages.append('<div><span class="peer">' + message.src + '</span>: ' + message.data + '</div>');
+      }
+    });
+
+    room.on('peerJoin', peerId => {
+      messages.append('<div><span class="peer">' + peerId + '</span>: has joined the room </div>');
+    });
+
+    room.on('peerLeave', peerId => {
+      messages.append('<div><span class="peer">' + peerId + '</span>: has left the room </div>');
+    });
   }
 
   // Goes through each active peer and calls FN on its connections.
-  function eachActiveConnection(fn) {
+  function eachActiveRoom(fn) {
     const actives = $('.active');
     const checkedIds = {};
     actives.each((_, el) => {
       const peerId = $(el).attr('id');
       if (!checkedIds[peerId]) {
-        const conns = peer.connections[peerId];
-        for (let i = 0, ii = conns.length; i < ii; i += 1) {
-          const conn = conns[i];
-          fn(conn, $(el));
-        }
+        const room = peer.rooms[peerId];
+        fn(room, $(el));
       }
       checkedIds[peerId] = 1;
     });
   }
-});
-let localStream = null;
-
-navigator.mediaDevices.getUserMedia({video: true, audio: true})
-    .then(function (stream) {
-        // Success
-        $('#my-video').get(0).srcObject = stream;
-        localStream = stream;
-    }).catch(function (error) {
-        // Error
-        console.error('mediaDevice.getUserMedia() error:', error);
-        return;
-    });
-let localStream = null;
-let peer = null;
-let existingCall = null;
-
-navigator.mediaDevices.getUserMedia({video: true, audio: true})
-    // 省略
-});
-
-peer = new Peer({
-    key: '28bd6e60-0804-4468-884a-88fd3b3ced41',
-    debug: 3
 });
