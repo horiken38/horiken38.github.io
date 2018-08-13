@@ -174,3 +174,15 @@ $(function() {
     });
   }
 });
+let localStream = null;
+let peer = null;
+let existingCall = null;
+
+navigator.mediaDevices.getUserMedia({video: true, audio: true})
+    // 省略
+});
+
+peer = new Peer({
+    key: '28bd6e60-0804-4468-884a-88fd3b3ced41',
+    debug: 3
+});
