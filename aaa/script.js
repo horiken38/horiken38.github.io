@@ -1,10 +1,3 @@
-
-
-
-
-
-
-<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -1435,7 +1428,18 @@
   Press h to open a hovercard with more details.
 </div>
 
+let localStream = null;
 
+navigator.mediaDevices.getUserMedia({video: true, audio: true})
+    .then(function (stream) {
+        // Success
+        $('#my-video').get(0).srcObject = stream;
+        localStream = stream;
+    }).catch(function (error) {
+        // Error
+        console.error('mediaDevice.getUserMedia() error:', error);
+        return;
+    });
   </body>
 </html>
 
