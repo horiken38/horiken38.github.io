@@ -1,44 +1,11 @@
-'use strict';
-
-// (1)
-function getQueryParams() {
-    if (1 < document.location.search.length) {
-        const query = document.location.search.substring(1);
-        const params = query.split('&');
-
-        const result = {};
-        for(var param of params) {
-            const element = param.split('=');
-            const key = decodeURIComponent(element[0]);
-            const value = decodeURIComponent(element[1]);
-            result[key] = value;
-        }
-        return result;
-    }
-    return null;
-}
-
-window.onload = ()=> {
-    const query = getQueryParams();
-    // (1')
-    const key = query["key"];
-    //peer id‚àGet Parameter‚©‚çŽæ‚é
-    const peer_id = query["peer_id"]
-
-    //(2)
-    const peer = new Peer(peer_id, {
-        key: key,
-        debug: 3
-    });
-
-    peer.on('open', function () {
-        // (4)
-        let peers = peer.listAllPeers(peers => {
-            console.log(peers);
-        });
-    });
-
-    peer.on('error', function (err) {
-        alert(err.message);
-    });
-};
+<!DOCTYPE html>
+<html>
+<head lang="ja">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>SkyWay JS SDK Tutorial</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<div class="pure-g">
+<script type="text/javascript" src="https://cdn.webrtc.ecl.ntt.com/skyway-latest.js"></script>
+<script type="text/javascript" src="script.js"></script>
+</html>
