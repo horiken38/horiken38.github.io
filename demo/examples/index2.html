@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="../dist/skyway-siru-client.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div>
+        <h1>skyway-siru-client example</h1>
+      </div>
+
+      <div class="mb-4">
+        <form class="form-inline connect">
+          <label for="input-apikey">apikey : </label>
+          <input class="form-control mr-3" type="text" id="input-apikey" value="83b6c63c-e412-4248-8e21-e0dcdb2a94b9" placeholder="your APIKEY here."/>
+
+          <label for="input-room-name">room name : </label>
+          <input class="form-control mr-3" type="text" id="input-room-name" value="testroom"/>
+
+          <label for="input-topic-name">topic name : </label>
+          <input class="form-control mr-3" type="text" id="input-topic-name" value="testtopic"/>
+
+          <button class="btn btn-primary" type="submit">start</button>
+        </form>
+      </div>
+
+      <div class="card md-5">
+        <div class="card-body">
+          <div class="card-title">
+            <h4>state table</h4>
+          </div>
+          <div class="card-body">
+            <table class="table">
+              <tr><th>status</th><td id="status">init</td></tr>
+              <tr><th>uuid</th><td id="uuid">N/A</td></tr>
+              <tr><th>video</th><td id="video-status">idle</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mt-3">
+        <div class="col-md-8">
+          <video id="janusvideo" autoplay></video>
+        </div>
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-body">
+              <form class="form-inline publish">
+                <input class="form-control form-control-sm mr-1" type="text" id="pub-mesg" placeholder="message here."/>
+                <button class="btn btn-primary btn-sm" type="submit">send</button>
+              </form>
+              <div id="pubsub-mesg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./script.js"></script>
+  </body>
+</html>

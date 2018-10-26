@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="../dist/skyway-siru-client.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Send Audio Sample</h1>
+      <p id='message'>
+        Input your apikey and roomname. Then click to start sending audio stream.
+      </p>
+      <form>
+        apikey: <input id="input-apikey" type="text" required>
+        roomname: <input id="input-room-name" type="text" value="testroom" required>
+        <button type="submit">start</button>
+      </form>
+    </div>
+
+  </body>
+  <script>
+// set key of localStorage
+const __STOREKEY__ = 'skyway-siru-client-sample'
+
+const init = () => {
+  const conf = JSON.parse(localStorage.getItem(__STOREKEY__))
+  if(conf) {
+    $("#input-apikey").val(conf.apikey)
+    $("#input-room-name").val(conf.roomName)
+  }
+}
+
+$("form").on('submit', ev => {
+  ev.preventDefault();
+
+  $("button").attr("disabled", "disabled");
+
+  const apikey = $("#input-apikey").val()
+    , roomname = $("#input-room-name").val();
+
+  const client = new SiRuClient( roomname, { key: apikey } );
+  $('#message').text('start connection to skyway');
+
+  client.on('connect', () => {
+    $('#message').text('connection established to skyway');
+  });
+
+  client.on('meta', profile => {
+    $('#message').text('p2p connection established to SkyWay IoT device');
+    const uuid = profile.uuid;
+    navigator.mediaDevices.getUserMedia({audio: true, video: false})
+      .then( stream => client.sendStream( uuid, stream ) )
+      .then( () => $('#message').text('succeeded to send audio stream') )
+      .catch( err => $('#message').text(err.message) );
+  });
+
+});
+
+init();
+  </script>
+</html>
